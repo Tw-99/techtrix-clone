@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ChainGrade | Faculty Application</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.7.0/ethers.umd.min.js"></script>
+</head>
+<body>
+
+    <div id="toast-container"></div>
+
+    <nav class="navbar">
+        <div class="logo" onclick="window.location.href='index.html'" style="cursor:pointer;">ChainGrade</div>
+        <div class="user-meta">
+            <span id="wallet-display" class="wallet-pill">Initialising...</span>
+        </div>
+    </nav>
+
+    <main class="dashboard-grid">
+        <aside class="sidebar">
+            <button class="menu-item active">📝 Faculty Application</button>
+            <button class="menu-item" onclick="window.location.href='dashboard.html'">← Back to Dashboard</button>
+            <button class="menu-item logout" onclick="logout()">Disconnect</button>
+        </aside>
+
+        <section class="content-area">
+            <div class="tab-window">
+                <h2>Faculty Credential Application</h2>
+                <p class="section-desc">Apply for a Faculty Soul-Bound Token (SBT) to access admin verification tools. Submit your institutional credentials for review.</p>
+
+                <!-- Application Status Banner -->
+                <div id="application-status-banner" class="inline-status" role="status" aria-live="polite" style="margin-bottom: 16px;"></div>
+
+                <!-- Application Form -->
+                <div class="step-card active" style="max-width: 640px; margin-bottom: 2rem;">
+                    <h3 style="font-size: 1.1rem; font-weight: 700; margin-bottom: 1.25rem;">Your Application</h3>
+
+                    <form id="faculty-application-form" onsubmit="submitFacultyApplication(event)">
+                        <!-- Full Name -->
+                        <div class="input-group">
+                            <label for="app-full-name">Full Name *</label>
+                            <input type="text" id="app-full-name" required placeholder="Dr. Jane Smith" />
+                        </div>
+
+                        <!-- Institution -->
+                        <div class="input-group">
+                            <label for="app-institution">Institution / University *</label>
+                            <input type="text" id="app-institution" required placeholder="e.g., University of Lagos" />
+                        </div>
+
+                        <!-- Department -->
+                        <div class="input-group">
+                            <label for="app-department">Department / Faculty *</label>
+                            <input type="text" id="app-department" required placeholder="e.g., Computer Science Department" />
+                        </div>
+
+                        <!-- Job Title -->
+                        <div class="input-group">
+                            <label for="app-title">Job Title / Position *</label>
+                            <select id="app-title" required>
+                                <option value="">-- Select Position --</option>
+                                <option value="professor">Professor</option>
+                                <option value="associate-prof">Associate Professor</option>
+                                <option value="assistant-prof">Assistant Professor</option>
+                                <option value="lecturer">Lecturer</option>
+                                <option value="senior-lecturer">Senior Lecturer</option>
+                                <option value="research-fellow">Research Fellow</option>
+                                <option value="department-head">Department Head</option>
+                                <option value="dean">Dean</option>
+                                <option value="other">Other Academic Role</option>
+                            </select>
+                        </div>
+
+                        <!-- Email -->
+                        <div class="input-group">
+                            <label for="app-email">Official Institution Email *</label>
+                            <input type="email" id="app-email" required placeholder="jane.smith@university.edu" />
+                        </div>
+
+                        <!-- Credential Upload -->
+                        <div class="input-group">
+                            <label for="credential-file">Upload Credential Document (PDF/Image) *</label>
+                            <p class="file-notice" style="margin-bottom: 0.75rem;">Accepted: Faculty ID, Degree Certificate, Employment Letter, Staff Directory Entry</p>
+                            <label class="custom-file-input">
+                                <input type="file" id="credential-file" accept=".pdf,.jpg,.jpeg,.png,.docx" required>
+                                <span>Choose Document</span>
+                            </label>
+                            <p id="credential-file-name" class="file-notice">No file chosen</p>
+                        </div>
+
+                        <!-- Credential Description -->
+                        <div class="input-group">
+                            <label for="credential-description">What credential are you submitting? *</label>
+                            <textarea id="credential-description" required placeholder="e.g., Recent faculty ID card proving current employment status" style="width: 100%; padding: 0.75rem; border: 1px solid var(--border-color); border-radius: 6px; font-family: inherit; resize: vertical; min-height: 80px;"></textarea>
+                        </div>
+
+                        <!-- Consent Checkbox -->
+                        <div style="margin-bottom: 1.5rem;">
+                            <label style="display: flex; align-items: flex-start; gap: 0.75rem; cursor: pointer; font-size: 0.9rem; color: var(--text-muted);">
+                                <input type="checkbox" id="app-consent" required style="margin-top: 2px;">
+                                <span>I confirm that the information provided is accurate and I am authorized to act as a faculty reviewer on ChainGrade.</span>
+                            </label>
+                        </div>
+
+                        <!-- Submit Button -->
+                        <div style="display: flex; gap: 0.75rem;">
+                            <button type="submit" class="primary-btn" style="width: auto; flex: 1;">Submit Application</button>
+                            <button type="button" class="outline-btn" style="width: auto; flex: 1;" onclick="resetApplicationForm()">Clear</button>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- Application Status Section -->
+                <h3 style="font-size: 1.1rem; font-weight: 700; margin-top: 2rem; margin-bottom: 1rem;">Your Application Status</h3>
+                <div id="application-status-card" class="step-card active" style="max-width: 640px;">
+                    <p class="file-notice">Loading your application status...</p>
+                </div>
+
+                <!-- Info Box -->
+                <div style="max-width: 640px; margin-top: 2rem; padding: 1.25rem; background: var(--background); border-left: 4px solid var(--accent-blue); border-radius: 6px;">
+                    <p style="font-size: 0.9rem; color: var(--text-muted); line-height: 1.75; margin: 0;">
+                        <strong>How it works:</strong> After you submit your credentials, the contract administrator will review your application. Once approved, you'll receive a Faculty Soul-Bound Token (SBT) minted to your wallet. This SBT grants you access to the verification panel where you can approve or revoke student projects.
+                    </p>
+                </div>
+
+            </div>
+        </section>
+    </main>
+
+    <script src="toast.js"></script>
+    <script src="disciplines.js"></script>
+    <script>
+        // ── Configuration ──────────────────────────────────────────
+        const CONTRACT_ADDRESS = "0x5EC9D9085184955EaeFAD0Dc79E2cbfc7e26151C";
+        const POLYGON_SCAN_BASE = "https://amoy.polygonscan.com";
+        const LS_APPLICATIONS_KEY = 'chaingr_faculty_applications';
+
+        let currentUser = null;
+        let userIsFaculty = false;
+        let readContract = null;
+
+        // ── Banner Helpers ─────────────────────────────────────────
+        function setBanner(bannerId, msg, type) {
+            var el = document.getElementById(bannerId);
+            if (!el) return;
+            el.textContent = msg;
+            el.className = 'inline-status visible ' + (type || 'info');
+        }
+
+        function clearBanner(bannerId) {
+            var el = document.getElementById(bannerId);
+            if (el) el.className = 'inline-status';
+        }
+
+        // ── Bootstrap ──────────────────────────────────────────────
+        function bootstrapApplication() {
+            const walletDisplay = document.getElementById('wallet-display');
+            try {
+                let storedWallet = localStorage.getItem('userWallet');
+                if (storedWallet && storedWallet !== "null" && storedWallet !== "undefined" && storedWallet.startsWith("0x")) {
+                    currentUser = storedWallet;
+                    if (walletDisplay) walletDisplay.innerText = `${currentUser.substring(0, 6)}...${currentUser.substring(currentUser.length - 4)}`;
+                } else {
+                    currentUser = "0x0000000000000000000000000000000000000000";
+                    if (walletDisplay) {
+                        walletDisplay.innerText = "View-Only Mode";
+                        walletDisplay.style.background = "#4b5563";
+                        walletDisplay.style.color = "white";
+                    }
+                }
+
+                setupPublicRpcProvider();
+                setupEventListeners();
+                loadApplicationStatus();
+            } catch (bootError) {
+                console.error("Critical error during bootstrap:", bootError);
+                setBanner('application-status-banner', 'Initialization Error: ' + bootError.message, 'error');
+            }
+        }
+
+        // ── RPC Provider ───────────────────────────────────────────
+        function setupPublicRpcProvider() {
+            const RPC_ENDPOINTS = [
+                "https://rpc-amoy.polygon.technology",
+                "https://polygon-amoy-bor-rpc.publicnode.com",
+                "https://rpc.ankr.com/polygon_amoy"
+            ];
+            let endpointIndex = 0;
+
+            function tryNextEndpoint() {
+                if (endpointIndex >= RPC_ENDPOINTS.length) {
+                    toast('RPC Unreachable', 'Could not connect to any Polygon Amoy node.', 'error', 8000);
+                    return;
+                }
+                const endpoint = RPC_ENDPOINTS[endpointIndex++];
+                try {
+                    const provider = new ethers.JsonRpcProvider(endpoint);
+                    provider.getNetwork().then(() => {
+                        readContract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, provider);
+                        console.log("RPC connected:", endpoint);
+                    }).catch(err => {
+                        console.warn("RPC unreachable, trying next:", endpoint);
+                        tryNextEndpoint();
+                    });
+                } catch (rpcError) {
+                    console.error("RPC config error:", rpcError);
+                    tryNextEndpoint();
+                }
+            }
+            tryNextEndpoint();
+        }
+
+        const CONTRACT_ABI = [
+            "function recordProject(string memory _fileName, string memory _ipfsHash, string memory _category, uint256 _aiScore) public",
+            "function getStudentHistory(address _student) public view returns (tuple(string fileName, string ipfsHash, string category, uint256 aiScore, uint256 timestamp, address student, bool isVerified, address verifiedBy)[] memory)",
+            "function holdsFacultySBT(address user) public view returns (bool)",
+            "function verifiedProfessionals(address user) public view returns (bool)",
+            "function admin() public view returns (address)",
+            "function issueFacultySBT(address _professor) public",
+            "function getAllStudents() public view returns (address[] memory)",
+            "function verifyProject(address _student, uint256 _index) public",
+            "function applyForFacultySBT(string memory _credentialHash, string memory _institution, string memory _department) public",
+            "function getPendingApplications() public view returns (tuple(address applicant, string credentialHash, string institution, uint256 timestamp, bool approved)[] memory)",
+            "function approveApplicationAndIssueSBT(address _applicant) public",
+            "function revokeProject(address _student, uint256 _index, string memory _reason) public",
+            "function getProjectMetrics(address _student, uint256 _index) public view returns (tuple(uint256 aiScore, uint256 facultyScore, bool isRevoked, string revokeReason))"
+        ];
+
+        // ── Event Listeners ────────────────────────────────────────
+        function setupEventListeners() {
+            const credentialInput = document.getElementById('credential-file');
+            const credentialNameDisplay = document.getElementById('credential-file-name');
+
+            if (credentialInput) {
+                credentialInput.addEventListener('change', () => {
+                    if (credentialInput.files.length > 0) {
+                        if (credentialNameDisplay) credentialNameDisplay.innerText = credentialInput.files[0].name;
+                    } else {
+                        if (credentialNameDisplay) credentialNameDisplay.innerText = 'No file chosen';
+                    }
+                });
+            }
+        }
+
+        // ── Load Application Status ────────────────────────────────
+        async function loadApplicationStatus() {
+            const statusCard = document.getElementById('application-status-card');
+            if (!statusCard) return;
+
+            if (!currentUser || currentUser === "0x0000000000000000000000000000000000000000") {
+                statusCard.innerHTML = `<p class="file-notice" style="color:#ef4444;">Please connect your wallet to check your application status.</p>`;
+                return;
+            }
+
+            try {
+                // Check if user already has faculty SBT
+                if (readContract) {
+                    const hasSBT = await readContract.holdsFacultySBT(currentUser);
+                    if (hasSBT) {
+                        statusCard.innerHTML = `
+                            <div style="display: flex; align-items: center; gap: 1rem;">
+                                <span style="font-size: 1.5rem;">✅</span>
+                                <div>
+                                    <strong style="color: #10b981; font-size: 1.05rem;">Faculty SBT Approved</strong>
+                                    <p style="font-size: 0.9rem; color: var(--text-muted); margin: 0.5rem 0 0;">Your credentials have been verified and approved by the administrator.</p>
+                                    <p style="font-size: 0.85rem; color: var(--text-muted); margin: 0;">You now have full access to the Faculty Verification Hub. <a href="dashboard.html" style="color: var(--accent-blue); text-decoration: none; font-weight: 600;">Go to Dashboard →</a></p>
+                                </div>
+                            </div>
+                        `;
+                        return;
+                    }
+                }
+
+                // Check local storage for submitted application
+                let applications = JSON.parse(localStorage.getItem(LS_APPLICATIONS_KEY) || '{}');
+                if (applications[currentUser]) {
+                    const app = applications[currentUser];
+                    const submitDate = new Date(app.timestamp).toLocaleDateString();
+                    statusCard.innerHTML = `
+                        <div style="display: flex; align-items: center; gap: 1rem;">
+                            <span style="font-size: 1.5rem;">⏳</span>
+                            <div>
+                                <strong style="color: var(--accent-blue); font-size: 1.05rem;">Application Pending</strong>
+                                <p style="font-size: 0.9rem; color: var(--text-muted); margin: 0.5rem 0 0;">Submitted on ${submitDate}</p>
+                                <p style="font-size: 0.85rem; color: var(--text-muted); margin: 0;">Your credentials are under review by the administrator. You will receive notification once a decision is made.</p>
+                            </div>
+                        </div>
+                    `;
+                    return;
+                }
+
+                statusCard.innerHTML = `
+                    <p class="file-notice">No application found. Submit the form above to apply for faculty credentials.</p>
+                `;
+            } catch (err) {
+                console.error("Error loading application status:", err);
+                statusCard.innerHTML = `<p class="file-notice" style="color:#ef4444;">Error loading status: ${err.message}</p>`;
+            }
+        }
+
+        // ── Submit Application ─────────────────────────────────────
+        async function submitFacultyApplication(event) {
+            event.preventDefault();
+
+            if (!currentUser || currentUser === "0x0000000000000000000000000000000000000000") {
+                setBanner('application-status-banner', 'Please connect your wallet first.', 'error');
+                toast('Wallet Required', 'Connect your wallet to submit an application.', 'error');
+                return;
+            }
+
+            const fullName = document.getElementById('app-full-name').value.trim();
+            const institution = document.getElementById('app-institution').value.trim();
+            const department = document.getElementById('app-department').value.trim();
+            const jobTitle = document.getElementById('app-title').value;
+            const email = document.getElementById('app-email').value.trim();
+            const credentialFile = document.getElementById('credential-file').files[0];
+            const credentialDesc = document.getElementById('credential-description').value.trim();
+            const consent = document.getElementById('app-consent').checked;
+
+            if (!credentialFile) {
+                setBanner('application-status-banner', 'Please upload a credential document.', 'error');
+                return;
+            }
+
+            if (!consent) {
+                setBanner('application-status-banner', 'Please confirm the consent checkbox.', 'error');
+                return;
+            }
+
+            setBanner('application-status-banner', 'Processing application... uploading credentials...', 'info');
+
+            try {
+                // Generate credential hash (simulated - in production, upload to IPFS)
+                const credentialHash = await generateCredentialHash(credentialFile, credentialDesc);
+
+                // Store application in localStorage (simulated - would be blockchain + backend in production)
+                let applications = JSON.parse(localStorage.getItem(LS_APPLICATIONS_KEY) || '{}');
+                applications[currentUser] = {
+                    fullName,
+                    institution,
+                    department,
+                    jobTitle,
+                    email,
+                    credentialHash,
+                    credentialDesc,
+                    timestamp: new Date().toISOString(),
+                    status: 'pending'
+                };
+                localStorage.setItem(LS_APPLICATIONS_KEY, JSON.stringify(applications));
+
+                setBanner('application-status-banner', '✅ Application submitted successfully! Awaiting admin review.', 'success');
+                toast('Application Submitted', 'Your credentials have been received. The administrator will review your application.', 'success');
+
+                // Reset form and reload status
+                resetApplicationForm();
+                await new Promise(r => setTimeout(r, 1500));
+                await loadApplicationStatus();
+
+            } catch (error) {
+                console.error("Application submission error:", error);
+                setBanner('application-status-banner', 'Submission failed: ' + (error.message || 'Unknown error'), 'error');
+                toast('Submission Failed', error.message, 'error');
+            }
+        }
+
+        // ── Generate Credential Hash (simulated) ───────────────────
+        async function generateCredentialHash(file, description) {
+            return new Promise((resolve) => {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const content = e.target.result;
+                    let hash = 0;
+                    const str = content + description;
+                    for (let i = 0; i < Math.min(str.length, 1000); i++) {
+                        const char = str.charCodeAt(i);
+                        hash = ((hash << 5) - hash) + char;
+                        hash = hash & hash;
+                    }
+                    const hashStr = 'QmCredential' + Math.abs(hash).toString(16).padStart(16, '0');
+                    resolve(hashStr);
+                };
+                reader.readAsText(file, 'UTF-8');
+            });
+        }
+
+        // ── Reset Form ─────────────────────────────────────────────
+        function resetApplicationForm() {
+            document.getElementById('faculty-application-form').reset();
+            document.getElementById('credential-file-name').innerText = 'No file chosen';
+            clearBanner('application-status-banner');
+        }
+
+        // ── Logout ─────────────────────────────────────────────────
+        function logout() {
+            localStorage.setItem('userLogoutIntent', 'true');
+            localStorage.removeItem('userWallet');
+            window.location.href = 'index.html';
+        }
+
+        // ── Boot ───────────────────────────────────────────────────
+        document.addEventListener('DOMContentLoaded', bootstrapApplication);
+    </script>
+
+</body>
+</html>
