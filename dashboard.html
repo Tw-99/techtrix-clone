@@ -36,12 +36,12 @@
 
                 <!-- Security note: PINATA key -->
                 <div class="security-note" id="dev-security-note">
-                    ⚠️ <strong>Developer Note:</strong> This build uses a client-side Pinata API key for demo purposes. In production, file uploads should be proxied through a backend server so the key is never exposed in browser source. Rotate your key after each presentation.
+                    ⚠️ <strong>Developer Note:</strong> This build uses a client-side Pinata API key for demo purposes. In production, file uploads should be proxied through a backend server so the key is never exposed.
                 </div>
 
                 <!-- AI Score disclaimer -->
                 <div class="ai-disclaimer">
-                    🤖 <span><strong>About the AI Integrity Score:</strong> This prototype uses a deterministic hash of filename + file size to simulate an originality score. A production build would integrate a real plagiarism API (e.g. Copyleaks or Turnitin). The score threshold of ≥50% controls public discovery feed visibility.</span>
+                    🤖 <span><strong>About the AI Integrity Score:</strong> This prototype uses a deterministic hash of filename + file size to simulate an originality score. A production build would integrate a plagiarism detection API.</span>
                 </div>
 
                 <div class="ledger-info-banner">
@@ -106,7 +106,7 @@
             <!-- ── DISCOVERY TAB ───────────────────────────────────── -->
             <div id="tab-discovery" class="tab-window hidden">
                 <h2>Academic Discovery</h2>
-                <p class="section-desc">Browse on-chain certified projects across all disciplines. Every record shown has passed the AI originality threshold and is permanently stored on the Polygon ledger.</p>
+                <p class="section-desc">Browse on-chain certified projects across all disciplines. Every record shown has passed the AI originality threshold and is permanently stored on the Polygon Amoy network.</p>
 
                 <div class="filter-bar">
                     <button id="filter-all" class="filter-pill active" onclick="filterGenre('all')">All Fields</button>
@@ -128,8 +128,9 @@
             <!-- ── ADMIN / FACULTY TAB ─────────────────────────────── -->
             <div id="tab-admin" class="tab-window hidden">
                 <h2>Faculty Verification Hub</h2>
-                <p class="section-desc">Issue faculty Soul-Bound Tokens (SBTs) and digitally verify incoming student submissions. Verified records are permanently marked on the immutable ledger.</p>
+                <p class="section-desc">Manage faculty applications, verify incoming student submissions, and revoke projects with low dual-scoring metrics (AI + Faculty). All actions are permanently recorded on-chain.</p>
 
+                <!-- Admin Status Panel -->
                 <div id="admin-tools" class="admin-tools hidden">
                     <div class="status-panel">
                         <div>
@@ -138,19 +139,46 @@
                         </div>
                         <span id="faculty-status-badge" class="badge neutral">Checking</span>
                     </div>
+
+                    <!-- Only show for contract admin -->
+                    <div id="admin-controls" class="issuer-panel hidden">
+                        <button id="apply-faculty-btn" class="outline-btn" style="width: auto; margin-bottom: 1rem;" onclick="window.location.href='admin-application.html'">📋 Apply for Faculty SBT</button>
+                        <p class="file-notice">If you don't have a Faculty SBT yet, click above to submit your credentials for review.</p>
+                    </div>
+
                     <div id="faculty-issuer" class="issuer-panel hidden">
+                        <h3 style="font-size: 1rem; font-weight: 700; margin-bottom: 1rem;">Issue Faculty SBT Directly</h3>
                         <label for="faculty-wallet-input">Faculty wallet address</label>
                         <div class="issuer-row">
                             <input id="faculty-wallet-input" type="text" placeholder="0x…" autocomplete="off" spellcheck="false">
                             <button id="issue-faculty-btn" class="primary-btn" type="button">Issue Faculty SBT</button>
                         </div>
-                        <p class="file-notice">Only the wallet that deployed this contract can issue faculty credentials.</p>
+                        <p class="file-notice">Only the wallet that deployed this contract can issue faculty credentials directly.</p>
                     </div>
                 </div>
 
                 <!-- Admin action inline status -->
                 <div id="admin-status-banner" class="inline-status" role="status" aria-live="polite" style="margin-bottom: 12px;"></div>
 
+                <!-- Application Queue Section (for contract admin only) -->
+                <div id="application-queue-section" class="hidden" style="margin-bottom: 2rem;">
+                    <h3 style="font-size: 1.1rem; font-weight: 700; margin-bottom: 1rem;">📋 Pending Faculty Applications</h3>
+                    <div id="application-queue-list" class="record-feed">
+                        <p class="file-notice">Loading applications...</p>
+                    </div>
+                </div>
+
+                <!-- Project Revocation Section (for faculty) -->
+                <div id="revocation-section" class="hidden" style="margin-bottom: 2rem;">
+                    <h3 style="font-size: 1.1rem; font-weight: 700; margin-bottom: 1rem;">🚫 Project Revocation (Dual-Score Review)</h3>
+                    <p class="file-notice" style="margin-bottom: 1rem;">Projects with low AI scores AND low faculty scores can be revoked. Select a project below and provide a revocation reason.</p>
+                    <div id="revocation-queue-list" class="record-feed">
+                        <p class="file-notice">Loading projects for review...</p>
+                    </div>
+                </div>
+
+                <!-- Pending Student Projects for Verification -->
+                <h3 style="font-size: 1.1rem; font-weight: 700; margin-bottom: 1rem;">✅ Projects Awaiting Faculty Approval</h3>
                 <div id="faculty-queue-list" class="record-feed">
                     <p class="file-notice">No records currently require faculty clearance tokens.</p>
                 </div>
@@ -159,29 +187,85 @@
         </section>
     </main>
 
+    <!-- ── Revocation Modal ────────────────────────────────────── -->
+    <div class="modal-overlay hidden" id="revocation-modal">
+        <div class="modal-content" style="max-width: 520px;">
+            <button class="modal-close" onclick="closeRevocationModal()">&times;</button>
+            <h2 style="font-size: 1.4rem; font-weight: 800; margin-bottom: 0.5rem; color: var(--text-main);">Revoke Project</h2>
+            <p style="font-size: 0.9rem; color: var(--text-muted); margin-bottom: 1rem; line-height: 1.65;">
+                <strong>Warning:</strong> Project revocation is permanent and will be recorded on-chain. Provide a clear reason for this action.
+            </p>
+
+            <div id="revocation-details" style="padding: 1rem; background: var(--background); border-radius: 6px; margin-bottom: 1rem;">
+                <p style="margin: 0; font-size: 0.9rem;"><strong>Project:</strong> <span id="revoke-project-name">—</span></p>
+                <p style="margin: 0.5rem 0 0; font-size: 0.9rem;"><strong>Student:</strong> <span id="revoke-student-addr">—</span></p>
+                <p style="margin: 0.5rem 0 0; font-size: 0.9rem;"><strong>AI Score:</strong> <span id="revoke-ai-score">—</span>% | <strong>Your Faculty Score:</strong> <span id="revoke-faculty-score">—</span>%</p>
+            </div>
+
+            <div style="margin-bottom: 1.25rem;">
+                <label for="revoke-reason" style="display: block; font-size: 0.875rem; font-weight: 700; color: var(--text-muted); margin-bottom: 0.5rem; text-transform: uppercase; letter-spacing: 0.05em;">
+                    Reason for Revocation *
+                </label>
+                <textarea id="revoke-reason" placeholder="e.g., Content does not meet academic standards, plagiarism detected, incomplete submission" style="width: 100%; padding: 0.75rem; border: 1px solid var(--border-color); border-radius: 6px; font-family: inherit; resize: vertical; min-height: 100px;"></textarea>
+            </div>
+
+            <div style="display: flex; gap: 0.75rem;">
+                <button onclick="submitRevocation()" class="primary-btn" style="width: auto; flex: 1; background: #ef4444;">Revoke Project</button>
+                <button onclick="closeRevocationModal()" class="outline-btn" style="width: auto; flex: 1;">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── Approve Application Modal ──────────────────────────────── -->
+    <div class="modal-overlay hidden" id="approve-app-modal">
+        <div class="modal-content" style="max-width: 520px;">
+            <button class="modal-close" onclick="closeApproveModal()">&times;</button>
+            <h2 style="font-size: 1.4rem; font-weight: 800; margin-bottom: 0.5rem; color: var(--text-main);">Approve Faculty Application</h2>
+
+            <div id="approval-details" style="padding: 1rem; background: var(--background); border-radius: 6px; margin-bottom: 1rem;">
+                <p style="margin: 0; font-size: 0.9rem;"><strong>Full Name:</strong> <span id="app-full-name-display">—</span></p>
+                <p style="margin: 0.5rem 0 0; font-size: 0.9rem;"><strong>Institution:</strong> <span id="app-institution-display">—</span></p>
+                <p style="margin: 0.5rem 0 0; font-size: 0.9rem;"><strong>Department:</strong> <span id="app-department-display">—</span></p>
+                <p style="margin: 0.5rem 0 0; font-size: 0.9rem;"><strong>Email:</strong> <span id="app-email-display">—</span></p>
+                <p style="margin: 0.5rem 0 0; font-size: 0.9rem;"><strong>Credential Hash:</strong> <span id="app-hash-display" style="font-family: monospace; font-size: 0.85rem;">—</span></p>
+            </div>
+
+            <p style="font-size: 0.9rem; color: var(--text-muted); margin-bottom: 1rem;">
+                Approving this application will issue a Faculty Soul-Bound Token (SBT) to the applicant's wallet, granting them immediate access to the verification panel.
+            </p>
+
+            <div style="display: flex; gap: 0.75rem;">
+                <button onclick="submitApproval()" class="primary-btn" style="width: auto; flex: 1;">✅ Approve & Issue SBT</button>
+                <button onclick="closeApproveModal()" class="outline-btn" style="width: auto; flex: 1;">Cancel</button>
+            </div>
+        </div>
+    </div>
+
     <!-- ── Shared Utilities ────────────────────────────────────── -->
     <script src="toast.js"></script>
     <script src="disciplines.js"></script>
 
     <script>
         // ── Contract Configuration ──────────────────────────────────
-        // NOTE: In production, remove PINATA_JWT_KEY from the frontend
-        // entirely and handle IPFS uploads through a backend endpoint.
         const CONTRACT_ADDRESS = "0x5EC9D9085184955EaeFAD0Dc79E2cbfc7e26151C";
-        const PINATA_JWT_KEY   = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySW5mb3JtYXRpb24iOnsiaWQiOiJjMDcxMTIxNS05NmQ1LTRiM2EtOTVjMy03ZDhjZjMyOGVmOGMiLCJlbWFpbCI6InJlYm9sZS53YW5kZXJhQHN0dWRlbnRzLmprdWF0LmFjLmtlIiwiZW1haWxfdmVyaWZpZWQiOnRydWUsInBpbl9wb2xpY3kiOnsicmVnaW9ucyI6W3siZGVzaXJlZFJlcGxpY2F0aW9uQ291bnQiOjEsImlkIjoiRlJBMSJ9LHsiZGVzaXJlZFJlcGxpY2F0aW9uQ291bnQiOjEsImlkIjoiTllDMSJ9XSwidmVyc2lvbiI6MX0sIm1mYV9lbmFibGVkIjpmYWxzZSwic3RhdHVzIjoiQUNUSVZFIn0sImF1dGhlbnRpY2F0aW9uVHlwZSI6InNjb3BlZEtleSIsInNjb3BlZEtleUtleSI6ImIyZjBhNjJjM2U4MGQ3NzdiNDMzIiwic2NvcGVkS2V5U2VjcmV0IjoiYzllY2U4NTg0MjgyZDViMzI5ZDNiZTBhMTE3NGRhNDJiZDlkMjA1ZWJjNjhiNWZiMDZhZmI2ZjQwNGZmMGQzNSIsImV4cCI6MTgxMDI5NDIzOH0.n8XsWhfVzKjFxOUwycLn_0UBVyqu8K-HM3_CfWwi0ac";
+        const PINATA_JWT_KEY   = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySW5mb3JtYXRpb24iOnsiaWQiOiJjMDcxMTIxNS05NmQ1LTRiM2EtOTVjMy03ZDhjZjMyOGVmOGMiLCJlbWFpbCI6InJlYm9sZS53YW5kZXJhQHN0dWRl[...]
 
         const CONTRACT_ABI = [
             "function recordProject(string memory _fileName, string memory _ipfsHash, string memory _category, uint256 _aiScore) public",
-            "function getStudentHistory(address _student) public view returns (tuple(string fileName, string ipfsHash, string category, uint256 aiScore, uint256 timestamp, address student, bool isVerified, address verifiedBy)[])",
+            "function getStudentHistory(address _student) public view returns (tuple(string fileName, string ipfsHash, string category, uint256 aiScore, uint256 timestamp, address student, bool isVerified, address verifiedBy)[] memory)",
             "function holdsFacultySBT(address user) public view returns (bool)",
             "function verifiedProfessionals(address user) public view returns (bool)",
             "function admin() public view returns (address)",
             "function issueFacultySBT(address _professor) public",
             "function getAllStudents() public view returns (address[] memory)",
-            "function verifyProject(address _student, uint256 _index) public"
+            "function verifyProject(address _student, uint256 _index) public",
+            "function revokeProject(address _student, uint256 _index, uint256 _facultyScore, string memory _reason) public",
+            "function getProjectMetrics(address _student, uint256 _index) public view returns (tuple(uint256 aiScore, uint256 facultyScore, bool isRevoked, string revokeReason) memory)"
         ];
 
         const POLYGON_SCAN_BASE = "https://amoy.polygonscan.com";
+        const LS_APPLICATIONS_KEY = 'chaingr_faculty_applications';
+        const REVOCATION_THRESHOLD = 40; // Projects with AI score < 40 AND faculty score < 40 can be revoked
 
         let readProvider          = null;
         let readContract          = null;
@@ -189,8 +273,10 @@
         let currentUser           = null;
         let userIsFaculty         = false;
         let userIsContractAdmin   = false;
+        let pendingApplications   = {};
+        let projectToRevoke       = null;
 
-        // ── Banner helpers (replace alert) ─────────────────────────
+        // ── Banner helpers ─────────────────────────────────────────
         function setBanner(bannerId, msg, type) {
             var el = document.getElementById(bannerId);
             if (!el) return;
@@ -203,7 +289,7 @@
             if (el) el.className = 'inline-status';
         }
 
-        // ── Bootstrap ───────────────────────────────────────────────
+        // ── Bootstrap ────────────────────────────────────────────────
         function bootstrapApplication() {
             const statusDisplay = document.getElementById('loading-status-text');
             const walletDisplay = document.getElementById('wallet-display');
@@ -232,7 +318,7 @@
             setupEventListeners();
         }
 
-        // ── RPC Provider (with fallback chain) ─────────────────────
+        // ── RPC Provider ────────────────────────────────────────────
         function setupPublicRpcProvider() {
             const statusDisplay = document.getElementById('loading-status-text');
             const RPC_ENDPOINTS = [
@@ -257,7 +343,7 @@
                         setTimeout(() => loadBlockchainData(), 50);
                         setTimeout(() => checkFacultyAuthorization(), 100);
                     }).catch(err => {
-                        console.warn("RPC unreachable, trying next:", endpoint, err.message);
+                        console.warn("RPC unreachable, trying next:", endpoint);
                         tryNextEndpoint();
                     });
                 } catch (rpcError) {
@@ -269,7 +355,7 @@
             tryNextEndpoint();
         }
 
-        // ── Blockchain Data Loader ──────────────────────────────────
+        // ── Blockchain Data Loader ────────────────────────────────
         async function loadBlockchainData() {
             const personalList = document.getElementById('personal-records-list');
             const globalFeed   = document.getElementById('global-discovery-feed');
@@ -302,7 +388,6 @@
                     personalList.innerHTML = '<p class="file-notice">No submissions found. Upload your first project above.</p>';
                 } else {
                     globalCachedRecords.forEach(record => renderRecordCard(personalList, record, false));
-                    // Populate discovery feed
                     const passing = globalCachedRecords.filter(r => Number(r.aiScore !== undefined ? r.aiScore : r[3] || 0) >= 50);
                     if (globalFeed && passing.length > 0) {
                         passing.forEach(record => renderRecordCard(globalFeed, record, true));
@@ -315,7 +400,7 @@
             }
         }
 
-        // ── Faculty Authorization Check ─────────────────────────────
+        // ── Faculty Authorization Check ────────────────────────────
         async function checkFacultyAuthorization() {
             if (!readContract || !currentUser || currentUser === "0x0000000000000000000000000000000000000000") return;
             try {
@@ -331,6 +416,10 @@
                     const adminLink = document.getElementById('admin-link');
                     if (adminLink) adminLink.classList.remove('hidden');
                     loadFacultyQueue();
+                    if (userIsContractAdmin) {
+                        loadApplicationQueue();
+                    }
+                    loadRevocationQueue();
                 }
             } catch (e) {
                 console.warn("Faculty auth check failed:", e.message);
@@ -343,13 +432,16 @@
             const adminStatus  = document.getElementById('admin-wallet-status');
             const facultyBadge = document.getElementById('faculty-status-badge');
             const facultyIssuer = document.getElementById('faculty-issuer');
+            const adminControls = document.getElementById('admin-controls');
+            const appQueueSection = document.getElementById('application-queue-section');
+            const revocationSection = document.getElementById('revocation-section');
 
             if (adminTools) adminTools.classList.remove('hidden');
             if (adminStatus) {
                 const shortAdmin = `${contractAdmin.substring(0, 6)}...${contractAdmin.substring(contractAdmin.length - 4)}`;
                 adminStatus.innerText = userIsContractAdmin
                     ? `Connected wallet controls this contract. Admin: ${shortAdmin}`
-                    : `Contract admin is ${shortAdmin}. Connect that wallet to issue faculty credentials.`;
+                    : `Contract admin is ${shortAdmin}. Connect that wallet to manage applications.`;
             }
             if (facultyBadge) {
                 facultyBadge.classList.remove('neutral', 'success', 'warning');
@@ -365,12 +457,124 @@
                 }
             }
             if (facultyIssuer) facultyIssuer.classList.toggle('hidden', !userIsContractAdmin);
+            if (adminControls) adminControls.classList.toggle('hidden', userIsContractAdmin);
+            if (appQueueSection) appQueueSection.classList.toggle('hidden', !userIsContractAdmin);
+            if (revocationSection && userIsFaculty) revocationSection.classList.remove('hidden');
+        }
+
+        // ── Load Application Queue (Admin Only) ──────────────────────
+        async function loadApplicationQueue() {
+            const queueList = document.getElementById('application-queue-list');
+            if (!queueList) return;
+
+            try {
+                let applications = JSON.parse(localStorage.getItem(LS_APPLICATIONS_KEY) || '{}');
+                pendingApplications = applications;
+                let appHtml = "";
+
+                for (const [walletAddr, app] of Object.entries(applications)) {
+                    if (app.status === 'approved') continue;
+
+                    const submitDate = new Date(app.timestamp).toLocaleDateString();
+                    appHtml += `
+                        <div class="step-card active" style="opacity:1; pointer-events:auto; margin-bottom:12px; border-left:4px solid var(--accent-blue);">
+                            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+                                <strong style="font-size:15px; color:var(--text-main);">${app.fullName}</strong>
+                                <button onclick="openApproveModal('${walletAddr}')" class="primary-btn" style="padding:6px 12px; font-size:12px; margin:0; width:auto;">Review &amp; Approve</button>
+                            </div>
+                            <p style="font-size:12px; color:var(--text-muted); margin:6px 0;">
+                                <strong style="color:var(--text-main);">Position:</strong> ${app.jobTitle} @ ${app.institution}
+                            </p>
+                            <p style="font-size:12px; color:var(--text-muted); margin:6px 0;">
+                                <strong style="color:var(--text-main);">Email:</strong> ${app.email} | <strong>Department:</strong> ${app.department}
+                            </p>
+                            <p style="font-size:12px; color:var(--text-muted); margin:6px 0;">
+                                <strong>Submitted:</strong> ${submitDate} | <strong>Credential Hash:</strong> <span style="font-family:monospace; font-size:11px;">${app.credentialHash}</span>
+                            </p>
+                            <p style="font-size:12px; color:var(--text-muted); margin:6px 0;">
+                                <strong>Credential Description:</strong> ${app.credentialDesc}
+                            </p>
+                        </div>
+                    `;
+                }
+
+                queueList.innerHTML = appHtml || `<p class="file-notice">No pending applications.</p>`;
+            } catch (err) {
+                console.error("Application queue error:", err);
+                queueList.innerHTML = `<p class="file-notice" style="color:#ef4444;">Error loading applications: ${err.message}</p>`;
+            }
+        }
+
+        // ── Load Revocation Queue (Faculty) ────────────────────────
+        async function loadRevocationQueue() {
+            const queueList = document.getElementById('revocation-queue-list');
+            if (!queueList || !readContract) return;
+
+            queueList.innerHTML = `<p class="file-notice"><span class="spinner"></span> Scanning projects for dual-score review…</p>`;
+
+            function safeArr(r) {
+                if (!r) return [];
+                if (typeof r.toArray === "function") return r.toArray();
+                if (typeof r.length === "number") return Array.from(r);
+                return [];
+            }
+
+            try {
+                let allStudents = [];
+                try { allStudents = safeArr(await readContract.getAllStudents()); }
+                catch (e) { console.warn("getAllStudents decode:", e.message); }
+
+                let revocableHtml = "";
+                for (let i = 0; i < allStudents.length; i++) {
+                    const studentAddress = allStudents[i];
+                    let projects = [];
+                    try { projects = safeArr(await readContract.getStudentHistory(studentAddress)); }
+                    catch (e) { console.warn("getStudentHistory decode:", e.message); continue; }
+
+                    for (let j = 0; j < projects.length; j++) {
+                        const record = projects[j];
+                        const aiScore = Number(record.aiScore !== undefined ? record.aiScore : record[3] || 0);
+                        const isRevoked = record.isRevoked !== undefined ? record.isRevoked : (record[8] || false);
+
+                        if (isRevoked) continue; // Skip already revoked projects
+
+                        // Check if AI score is low (< threshold)
+                        if (aiScore < REVOCATION_THRESHOLD) {
+                            const fName = record.fileName || record[0] || "Unnamed file";
+                            const categoryCode = record.category || record[2] || "";
+                            const ipfsRef = record.ipfsHash || record[1] || "";
+                            const webGatewayUrl = `https://gateway.pinata.cloud/ipfs/${ipfsRef}`;
+                            const shortAddr = `${studentAddress.substring(0,6)}...${studentAddress.substring(studentAddress.length-4)}`;
+
+                            revocableHtml += `
+                                <div class="step-card active" style="opacity:1; pointer-events:auto; margin-bottom:12px; border-left:4px solid #ef4444;">
+                                    <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+                                        <strong style="font-size:15px; color:var(--text-main);">${fName}</strong>
+                                        <button onclick="openRevocationModal('${studentAddress}', ${j}, '${fName}', ${aiScore})" class="primary-btn" style="padding:6px 12px; font-size:12px; margin:0; width:auto; background:#ef4444;">Review &amp; Revoke</button>
+                                    </div>
+                                    <p style="font-size:12px; color:var(--text-muted); margin:6px 0;">
+                                        Student: <strong style="color:var(--text-main);">${shortAddr}</strong> | Field: <strong>${categoryCode.toUpperCase()}</strong>
+                                    </p>
+                                    <p style="font-size:12px; color:var(--text-muted); margin:6px 0;">
+                                        <strong style="color:#ef4444;">⚠️ AI Score: ${aiScore}% (Below threshold of ${REVOCATION_THRESHOLD}%)</strong>
+                                    </p>
+                                    <p style="font-family:monospace; font-size:11px; margin:8px 0; color:var(--text-muted); word-break:break-all;">
+                                        IPFS: <a href="${webGatewayUrl}" target="_blank" style="color:var(--accent-blue); text-decoration:underline;">${ipfsRef.slice(0,20)}…</a>
+                                    </p>
+                                </div>
+                            `;
+                        }
+                    }
+                }
+
+                queueList.innerHTML = revocableHtml || `<p class="file-notice">✅ All projects are within acceptable scoring ranges.</p>`;
+            } catch (err) {
+                console.error("Revocation queue error:", err);
+                queueList.innerHTML = `<p class="file-notice" style="color:#ef4444;">Could not load revocation queue: ${err.message}</p>`;
+            }
         }
 
         // ── Faculty Queue Loader ────────────────────────────────────
-        // NOTE: This loops N RPC calls (one per student). Acceptable for
-        // a prototype / small cohort. Production should use indexed events
-        // or a subgraph to batch this into a single query.
         async function loadFacultyQueue() {
             const queueList = document.getElementById('faculty-queue-list');
             if (!readContract || !queueList) return;
@@ -423,7 +627,7 @@
                                 </p>
                                 <div style="font-size:12px; margin-top:10px; border-top:1px solid var(--border-color); padding-top:8px;">
                                     Field: <strong>${categoryCode.toUpperCase()}</strong> &nbsp;|&nbsp; AI Score: <strong>${score}%</strong>
-                                    <span style="font-size:10px; color:var(--text-muted);"> (simulated — see disclaimer)</span>
+                                    <span style="font-size:10px; color:var(--text-muted);"> (simulated)</span>
                                 </div>
                             </div>
                         `;
@@ -439,7 +643,187 @@
             }
         }
 
-        // ── Submission Pipeline ─────────────────────────────────────
+        // ── Submit Revocation ──────────────────────────────────────
+        async function submitRevocation() {
+            if (!projectToRevoke || typeof window.ethereum === 'undefined') {
+                toast('Error', 'Missing project data or wallet extension.', 'error');
+                return;
+            }
+
+            const facultyScore = parseInt(document.getElementById('revoke-faculty-score').innerText) || 0;
+            const reason = document.getElementById('revoke-reason').value.trim();
+
+            if (!reason) {
+                toast('Error', 'Please provide a reason for revocation.', 'error');
+                return;
+            }
+
+            setBanner('admin-status-banner', 'Revoking project... waiting for wallet signature...', 'info');
+
+            try {
+                await ensurePolygonAmoy();
+                const writeProvider = new ethers.BrowserProvider(window.ethereum);
+                const writeSigner   = await writeProvider.getSigner();
+                const writeContract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, writeSigner);
+
+                const tx = await writeContract.revokeProject(projectToRevoke.student, projectToRevoke.index, facultyScore, reason);
+                setBanner('admin-status-banner', 'Revocation submitted. Mining on-chain...', 'info');
+                await tx.wait();
+                setBanner('admin-status-banner', '✅ Project revoked permanently on-chain.', 'success');
+                toast('Revoked', 'Project has been permanently revoked and recorded on the ledger.', 'success');
+
+                closeRevocationModal();
+                await loadRevocationQueue();
+                await loadFacultyQueue();
+            } catch (error) {
+                console.error("Revocation error:", error);
+                setBanner('admin-status-banner', 'Revocation failed: ' + (error.message || 'Unknown error'), 'error');
+                toast('Revocation Failed', error.message, 'error');
+            }
+        }
+
+        // ── Submit Approval ────────────────────────────────────────
+        async function submitApproval() {
+            if (!projectToRevoke || typeof window.ethereum === 'undefined') {
+                toast('Error', 'Missing application data or wallet extension.', 'error');
+                return;
+            }
+
+            const applicantAddr = projectToRevoke.applicant;
+            setBanner('admin-status-banner', 'Approving application... issuing Faculty SBT...', 'info');
+
+            try {
+                await ensurePolygonAmoy();
+                const writeProvider = new ethers.BrowserProvider(window.ethereum);
+                const writeSigner   = await writeProvider.getSigner();
+                const writeContract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, writeSigner);
+
+                const tx = await writeContract.issueFacultySBT(applicantAddr);
+                setBanner('admin-status-banner', 'SBT issuance submitted. Mining on-chain...', 'info');
+                await tx.wait();
+                setBanner('admin-status-banner', '✅ Faculty SBT issued successfully.', 'success');
+                toast('Approved', `Faculty SBT minted for ${applicantAddr.slice(0,8)}…`, 'success');
+
+                // Mark as approved in localStorage
+                let applications = JSON.parse(localStorage.getItem(LS_APPLICATIONS_KEY) || '{}');
+                if (applications[applicantAddr]) {
+                    applications[applicantAddr].status = 'approved';
+                    localStorage.setItem(LS_APPLICATIONS_KEY, JSON.stringify(applications));
+                }
+
+                closeApproveModal();
+                await loadApplicationQueue();
+            } catch (error) {
+                console.error("Approval error:", error);
+                setBanner('admin-status-banner', 'Approval failed: ' + (error.message || 'Unknown error'), 'error');
+                toast('Approval Failed', error.message, 'error');
+            }
+        }
+
+        // ── Modals ─────────────────────────────────────────────────
+        function openRevocationModal(student, index, projectName, aiScore) {
+            projectToRevoke = { student, index };
+            document.getElementById('revoke-project-name').innerText = projectName;
+            document.getElementById('revoke-student-addr').innerText = `${student.substring(0,6)}...${student.substring(student.length-4)}`;
+            document.getElementById('revoke-ai-score').innerText = aiScore;
+            document.getElementById('revoke-faculty-score').innerText = "0"; // User will set this
+            document.getElementById('revoke-reason').value = "";
+            document.getElementById('revocation-modal').classList.remove('hidden');
+        }
+
+        function closeRevocationModal() {
+            document.getElementById('revocation-modal').classList.add('hidden');
+            projectToRevoke = null;
+        }
+
+        function openApproveModal(walletAddr) {
+            const app = pendingApplications[walletAddr];
+            if (!app) return;
+
+            projectToRevoke = { applicant: walletAddr };
+            document.getElementById('app-full-name-display').innerText = app.fullName;
+            document.getElementById('app-institution-display').innerText = app.institution;
+            document.getElementById('app-department-display').innerText = app.department;
+            document.getElementById('app-email-display').innerText = app.email;
+            document.getElementById('app-hash-display').innerText = app.credentialHash;
+            document.getElementById('approve-app-modal').classList.remove('hidden');
+        }
+
+        function closeApproveModal() {
+            document.getElementById('approve-app-modal').classList.add('hidden');
+            projectToRevoke = null;
+        }
+
+        // ── Faculty Sign-Off ──────────────────────────────────────
+        async function signOffProject(studentAddress, projectIndex) {
+            if (typeof window.ethereum === 'undefined') {
+                toast('No Wallet', 'A wallet extension is required to approve submissions.', 'error');
+                return;
+            }
+            setBanner('admin-status-banner', 'Waiting for wallet signature…', 'info');
+            try {
+                await ensurePolygonAmoy();
+                const writeProvider = new ethers.BrowserProvider(window.ethereum);
+                const writeSigner   = await writeProvider.getSigner();
+                const writeContract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, writeSigner);
+                const tx = await writeContract.verifyProject(studentAddress, projectIndex);
+                setBanner('admin-status-banner', 'Transaction submitted. Mining…', 'info');
+                toast('Approval Submitted', 'Waiting for block confirmation…', 'info');
+                await tx.wait();
+                setBanner('admin-status-banner', '✅ Project verified on Polygon Amoy Ledger.', 'success');
+                toast('Verified!', 'The project has been permanently marked as faculty-verified.', 'success');
+                await loadFacultyQueue();
+            } catch (error) {
+                console.error("Faculty sign-off error:", error);
+                const msg = error?.reason || error?.message || "Transaction rejected.";
+                setBanner('admin-status-banner', 'Verification failed: ' + msg, 'error');
+                toast('Verification Failed', msg, 'error');
+            }
+        }
+
+        // ── Issue Faculty SBT ────────────────────────────────────
+        async function issueFacultyCredential() {
+            const input  = document.getElementById('faculty-wallet-input');
+            const button = document.getElementById('issue-faculty-btn');
+            const targetAddress = input ? input.value.trim() : "";
+
+            if (!ethers.isAddress(targetAddress)) {
+                toast('Invalid Address', 'Enter a valid Ethereum wallet address (0x…).', 'warning');
+                return;
+            }
+            if (!userIsContractAdmin) {
+                toast('Not Authorised', 'Only the contract admin wallet can issue faculty credentials.', 'error');
+                return;
+            }
+            if (typeof window.ethereum === 'undefined') {
+                toast('No Wallet', 'A wallet extension is required.', 'error');
+                return;
+            }
+
+            try {
+                if (button) { button.disabled = true; button.innerText = "Waiting for Wallet…"; }
+                setBanner('admin-status-banner', 'Issuing faculty SBT — confirm in wallet…', 'info');
+                await ensurePolygonAmoy();
+                const writeProvider = new ethers.BrowserProvider(window.ethereum);
+                const writeSigner   = await writeProvider.getSigner();
+                const writeContract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, writeSigner);
+                const tx = await writeContract.issueFacultySBT(targetAddress);
+                if (button) button.innerText = "Mining Credential…";
+                await tx.wait();
+                setBanner('admin-status-banner', '✅ Faculty SBT issued successfully.', 'success');
+                toast('SBT Issued', `Faculty credential minted for ${targetAddress.slice(0,8)}…`, 'success');
+                if (input) input.value = "";
+            } catch (error) {
+                console.error("SBT issue error:", error);
+                const msg = error?.reason || error?.message || "Transaction rejected.";
+                setBanner('admin-status-banner', 'SBT issuance failed: ' + msg, 'error');
+                toast('SBT Failed', msg, 'error');
+            } finally {
+                if (button) { button.disabled = false; button.innerText = "Issue Faculty SBT"; }
+            }
+        }
+
+        // ── Submission Pipeline ────────────────────────────────────
         async function executeSubmissionPipeline() {
             const actionBtn  = document.getElementById('upload-action-btn');
             const fileInput  = document.getElementById('document-file');
@@ -492,14 +876,18 @@
                 const txUrl = `${POLYGON_SCAN_BASE}/tx/${receipt.hash}`;
                 setBanner('submit-status-banner',
                     `✅ Recorded on-chain! TX: ${receipt.hash.slice(0,10)}…`, 'success');
-                toast('Submission Confirmed', `Your project is permanently on Polygon Amoy. View on PolygonScan for full details.`, 'success', 8000);
+                toast('Submission Confirmed', `Your project is permanently on Polygon Amoy.`, 'success', 8000);
 
                 if (fileInput) fileInput.value = "";
                 document.getElementById('selected-file-name').innerText = "No file chosen";
                 setBanner('submit-status-banner', '✅ Recorded on-chain! Loading your submission history…', 'success');
                 await new Promise(r => setTimeout(r, 3000));
                 await loadBlockchainData();
-                if (userIsFaculty) await loadFacultyQueue();
+                if (userIsFaculty) {
+                    await loadFacultyQueue();
+                    if (userIsContractAdmin) await loadApplicationQueue();
+                    await loadRevocationQueue();
+                }
 
             } catch (error) {
                 console.error("Submission pipeline error:", error);
@@ -511,76 +899,7 @@
             }
         }
 
-        // ── Faculty Sign-Off ────────────────────────────────────────
-        async function signOffProject(studentAddress, projectIndex) {
-            if (typeof window.ethereum === 'undefined') {
-                toast('No Wallet', 'A wallet extension is required to approve submissions.', 'error');
-                return;
-            }
-            setBanner('admin-status-banner', 'Waiting for wallet signature…', 'info');
-            try {
-                await ensurePolygonAmoy();
-                const writeProvider = new ethers.BrowserProvider(window.ethereum);
-                const writeSigner   = await writeProvider.getSigner();
-                const writeContract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, writeSigner);
-                const tx = await writeContract.verifyProject(studentAddress, projectIndex);
-                setBanner('admin-status-banner', 'Transaction submitted. Mining…', 'info');
-                toast('Approval Submitted', 'Waiting for block confirmation…', 'info');
-                await tx.wait();
-                setBanner('admin-status-banner', '✅ Project verified on Polygon Amoy Ledger.', 'success');
-                toast('Verified!', 'The project has been permanently marked as faculty-verified.', 'success');
-                await loadFacultyQueue();
-            } catch (error) {
-                console.error("Faculty sign-off error:", error);
-                const msg = error?.reason || error?.message || "Transaction rejected.";
-                setBanner('admin-status-banner', 'Verification failed: ' + msg, 'error');
-                toast('Verification Failed', msg, 'error');
-            }
-        }
-
-        // ── Issue Faculty SBT ───────────────────────────────────────
-        async function issueFacultyCredential() {
-            const input  = document.getElementById('faculty-wallet-input');
-            const button = document.getElementById('issue-faculty-btn');
-            const targetAddress = input ? input.value.trim() : "";
-
-            if (!ethers.isAddress(targetAddress)) {
-                toast('Invalid Address', 'Enter a valid Ethereum wallet address (0x…).', 'warning');
-                return;
-            }
-            if (!userIsContractAdmin) {
-                toast('Not Authorised', 'Only the contract admin wallet can issue faculty credentials.', 'error');
-                return;
-            }
-            if (typeof window.ethereum === 'undefined') {
-                toast('No Wallet', 'A wallet extension is required.', 'error');
-                return;
-            }
-
-            try {
-                if (button) { button.disabled = true; button.innerText = "Waiting for Wallet…"; }
-                setBanner('admin-status-banner', 'Issuing faculty SBT — confirm in wallet…', 'info');
-                await ensurePolygonAmoy();
-                const writeProvider = new ethers.BrowserProvider(window.ethereum);
-                const writeSigner   = await writeProvider.getSigner();
-                const writeContract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, writeSigner);
-                const tx = await writeContract.issueFacultySBT(targetAddress);
-                if (button) button.innerText = "Mining Credential…";
-                await tx.wait();
-                setBanner('admin-status-banner', '✅ Faculty SBT issued successfully.', 'success');
-                toast('SBT Issued', `Faculty credential minted for ${targetAddress.slice(0,8)}…`, 'success');
-                if (input) input.value = "";
-            } catch (error) {
-                console.error("SBT issue error:", error);
-                const msg = error?.reason || error?.message || "Transaction rejected.";
-                setBanner('admin-status-banner', 'SBT issuance failed: ' + msg, 'error');
-                toast('SBT Failed', msg, 'error');
-            } finally {
-                if (button) { button.disabled = false; button.innerText = "Issue Faculty SBT"; }
-            }
-        }
-
-        // ── Record Card Renderer ────────────────────────────────────
+        // ── Record Card Renderer ──────────────────────────────────
         function renderRecordCard(container, record, isGlobal) {
             const fName        = record.fileName  || record[0] || "Unnamed Record";
             const ipfsRef      = record.ipfsHash  || record[1] || "";
@@ -603,7 +922,7 @@
                     <p style="font-family:monospace; font-size:11px; margin:8px 0; color:var(--text-muted); word-break:break-all;">
                         IPFS: <a href="${webGatewayUrl}" target="_blank" style="color:var(--accent-blue); text-decoration:underline;">${ipfsRef.slice(0,20)}…</a>
                     </p>
-                    <div style="display:flex; justify-content:space-between; align-items:center; font-size:12px; margin-top:10px; border-top:1px solid var(--border-color); padding-top:8px; flex-wrap:wrap; gap:6px;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; font-size:12px; margin-top:10px; border-top:1px solid var(--border-color); padding-top:8px; flex-wrap:wrap; gap:8px;">
                         <span>
                             <strong>${categoryCode.toUpperCase()}</strong> &nbsp;·&nbsp; ${formattedDate}
                             &nbsp;·&nbsp; <a href="${scanUrl}" target="_blank" class="polygonscan-link">PolygonScan ↗</a>
@@ -617,7 +936,7 @@
             `;
         }
 
-        // ── Discovery Feed Filters ──────────────────────────────────
+        // ── Discovery Feed Filters ────────────────────────────────
         function filterGenre(genre) {
             document.querySelectorAll('.filter-pill').forEach(p => p.classList.remove('active'));
             const activeFilter = document.getElementById('filter-all');
@@ -657,7 +976,7 @@
             filtered.forEach(record => renderRecordCard(globalFeed, record, true));
         }
 
-        // ── Tab Switcher ────────────────────────────────────────────
+        // ── Tab Switcher ─────────────────────────────────────────
         function switchTab(tabName) {
             document.querySelectorAll('.tab-window').forEach(tab => tab.classList.add('hidden'));
             document.querySelectorAll('.menu-item').forEach(btn => btn.classList.remove('active'));
@@ -666,13 +985,11 @@
             if (targetTab) targetTab.classList.remove('hidden');
             if (targetBtn) targetBtn.classList.add('active');
 
-            // Show loading spinner when switching to discovery if feed is empty
             if (tabName === 'discovery') {
                 const globalFeed = document.getElementById('global-discovery-feed');
                 const loader     = document.getElementById('discovery-loading');
                 if (globalFeed && globalFeed.innerHTML.trim() === '') {
                     if (loader) loader.style.display = 'block';
-                    // Re-populate once blockchain data is ready
                     const poller = setInterval(function () {
                         if (globalCachedRecords.length > 0 || readContract) {
                             if (loader) loader.style.display = 'none';
@@ -684,7 +1001,7 @@
             }
         }
 
-        // ── Utility: Action Button State ────────────────────────────
+        // ── Utility: Action Button State ──────────────────────────
         function setActionBtn(btn, disabled, label) {
             if (!btn) return;
             btn.disabled = disabled;
@@ -697,8 +1014,7 @@
             setActionBtn(actionBtn, false, 'Submit to Blockchain');
         }
 
-        // ── Utility: Deterministic AI Score (simulation) ─────────────
-        // Production note: replace with a real plagiarism API call.
+        // ── Utility: Deterministic AI Score (simulation) ────────────
         function generateDeterministicScore(fileName, fileSize) {
             let hash = 0;
             const str = fileName + fileSize;
@@ -710,9 +1026,7 @@
             return Math.abs(hash % 51) + 40;
         }
 
-        // ── Utility: Pin to IPFS via Pinata ────────────────────────
-        // Production note: move this fetch() to a backend server so
-        // PINATA_JWT_KEY is never exposed in client-side JavaScript.
+        // ── Utility: Pin to IPFS via Pinata ──────────────────────
         async function pinFileToIPFS(file) {
             const formData = new FormData();
             formData.append("file", file);
@@ -730,7 +1044,7 @@
             return result.IpfsHash;
         }
 
-        // ── Utility: Ensure Correct Network ─────────────────────────
+        // ── Utility: Ensure Correct Network ──────────────────────
         async function ensurePolygonAmoy() {
             const AMOY_CHAIN_ID = '0x13882';
             const currentChain  = await window.ethereum.request({ method: 'eth_chainId' });
@@ -758,7 +1072,7 @@
             }
         }
 
-        // ── Event Listeners ─────────────────────────────────────────
+        // ── Event Listeners ──────────────────────────────────────
         function setupEventListeners() {
             const fileInput        = document.getElementById('document-file');
             const actionBtn        = document.getElementById('upload-action-btn');
@@ -782,14 +1096,14 @@
             if (issueFacultyBtn) issueFacultyBtn.addEventListener('click', issueFacultyCredential);
         }
 
-        // ── Logout ───────────────────────────────────────────────────
+        // ── Logout ────────────────────────────────────────────────
         function logout() {
             localStorage.setItem('userLogoutIntent', 'true');
             localStorage.removeItem('userWallet');
             window.location.href = 'index.html';
         }
 
-        // ── Boot ─────────────────────────────────────────────────────
+        // ── Boot ──────────────────────────────────────────────────
         document.addEventListener('DOMContentLoaded', bootstrapApplication);
     </script>
 </body>
